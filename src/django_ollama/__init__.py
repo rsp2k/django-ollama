@@ -16,14 +16,27 @@ except ImportError:
 default_app_config = "django_ollama.apps.DjangoOllamaConfig"
 
 # Public API exports
-from .api import chat, generate
-from .models import KnowledgeBase, KnowledgeBaseContent, KnowledgeBaseMedia
+from .api import chat, generate, achat, agenerate
 
+# Conditional imports for Django models (only when Django is available and configured)
 __all__ = [
     "__version__",
     "chat",
     "generate",
-    "KnowledgeBase",
-    "KnowledgeBaseContent",
-    "KnowledgeBaseMedia",
+    "achat",
+    "agenerate",
 ]
+
+try:
+    from django.conf import settings
+    from django.apps import apps
+    if settings.configured and apps.ready:
+        from .models import KnowledgeBase, KnowledgeBaseContent, KnowledgeBaseMedia
+        __all__.extend([
+            "KnowledgeBase",
+            "KnowledgeBaseContent",
+            "KnowledgeBaseMedia",
+        ])
+except (ImportError, AttributeError, RuntimeError):
+    # Django not available, not configured, or apps not ready
+    pass
