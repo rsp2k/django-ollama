@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Django-Ollama Test Dashboard - Real-time test results and coverage analytics">
+    <title>Django-Ollama Test Dashboard</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧪</text></svg>">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    Django-Ollama Test Dashboard
+                </div>
+                <div class="header-controls">
+                    <button id="refresh-button" class="theme-toggle">
+                        🔄 Refresh
+                    </button>
+                    <button id="theme-toggle" class="theme-toggle">
+                        ☀️ Light
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Status Line (Vim-style) -->
+    <div class="status-line">
+        <div class="status-line-left">
+            <span>LIVE</span>
+            <span>|</span>
+            <span id="current-time">--:--</span>
+            <span>|</span>
+            <span>Test Dashboard v1.0</span>
+            <span>|</span>
+            <span id="connection-status" class="connection-status connecting">Connecting...</span>
+        </div>
+        <div class="status-line-right">
+            <span>Status: <span id="running-indicator" class="status-dot passed"></span></span>
+            <span id="connection-count">Connections: 0</span>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Loading Indicator -->
+            <div id="loading-indicator" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                Loading dashboard data...
+            </div>
+
+            <!-- Live Test Execution -->
+            <div class="terminal-window" id="live-execution" style="display: none;">
+                <div class="terminal-header">
+                    <div class="terminal-title">
+                        🔴 Live Test Execution
+                    </div>
+                    <div class="terminal-controls">
+                        <button class="terminal-button close"></button>
+                        <button class="terminal-button minimize"></button>
+                        <button class="terminal-button maximize"></button>
+                    </div>
+                </div>
+                <div class="terminal-body">
+                    <div id="current-test-run" class="current-run-display">
+                        <!-- Populated by WebSocket -->
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-info">
+                            <span id="test-progress-text">0/0</span>
+                            <span class="progress-percentage"></span>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div id="test-progress-bar" class="progress-bar-fill"></div>
+                        </div>
+                    </div>
+                    <div id="current-test" class="current-test-display">
+                        <!-- Current test info populated by WebSocket -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Overview -->
+            <div class="terminal-window">
+                <div class="terminal-header">
+                    <div class="terminal-title">
+                        📊 Dashboard Overview
+                    </div>
+                    <div class="terminal-controls">
+                        <button class="terminal-button close"></button>
+                        <button class="terminal-button minimize"></button>
+                        <button class="terminal-button maximize"></button>
+                    </div>
+                </div>
+                <div class="terminal-body">
+                    <div class="dashboard-grid">
+                        <div class="metric-card" id="total-runs">
+                            <div class="metric-header">
+                                <span class="metric-title">Total Runs</span>
+                                <span class="metric-icon">🏃</span>
+                            </div>
+                            <div class="metric-value">--</div>
+                            <div class="metric-subtitle">Last 24h</div>
+                            <div class="metric-change neutral">--</div>
+                        </div>
+
+                        <div class="metric-card" id="success-rate">
+                            <div class="metric-header">
+                                <span class="metric-title">Success Rate</span>
+                                <span class="metric-icon">✅</span>
+                            </div>
+                            <div class="metric-value">--%</div>
+                            <div class="metric-subtitle">Average</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill passed" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="metric-card" id="avg-duration">
+                            <div class="metric-header">
+                                <span class="metric-title">Avg Duration</span>
+                                <span class="metric-icon">⏱️</span>
+                            </div>
+                            <div class="metric-value">--s</div>
+                            <div class="metric-subtitle">Per test run</div>
+                            <div class="metric-change neutral">--</div>
+                        </div>
+
+                        <div class="metric-card" id="running-tests">
+                            <div class="metric-header">
+                                <span class="metric-title">Running Tests</span>
+                                <span class="metric-icon">🔄</span>
+                            </div>
+                            <div class="metric-value">--</div>
+                            <div class="metric-subtitle">Currently active</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill running" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="dashboard-grid">
+                <!-- Trend Chart -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3 class="chart-title">📈 Test Trends (7 days)</h3>
+                        <div class="chart-controls">
+                            <button class="chart-button active" data-period="7">7d</button>
+                            <button class="chart-button" data-period="30">30d</button>
+                            <button class="chart-button" data-period="90">90d</button>
+                        </div>
+                    </div>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="trend-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Coverage Chart -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3 class="chart-title">🎯 Coverage Overview</h3>
+                    </div>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="coverage-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Type Distribution -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h3 class="chart-title">🔍 Test Type Distribution</h3>
+                </div>
+                <div style="height: 250px; position: relative;">
+                    <canvas id="test-type-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Recent Test Runs -->
+            <div class="terminal-window">
+                <div class="terminal-header">
+                    <div class="terminal-title">
+                        🏃 Recent Test Runs
+                    </div>
+                    <div class="terminal-controls">
+                        <button class="terminal-button close"></button>
+                        <button class="terminal-button minimize"></button>
+                        <button class="terminal-button maximize"></button>
+                    </div>
+                </div>
+                <div class="terminal-body">
+                    <table class="data-table" id="recent-runs-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="status">Status</th>
+                                <th data-sort="run_id">Run ID</th>
+                                <th data-sort="started_at">Started</th>
+                                <th data-sort="duration">Duration</th>
+                                <th data-sort="total_tests">Tests</th>
+                                <th data-sort="success_rate">Success</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Coverage Heatmap -->
+            <div class="terminal-window">
+                <div class="terminal-header">
+                    <div class="terminal-title">
+                        🌡️ Coverage Heatmap
+                    </div>
+                    <div class="terminal-controls">
+                        <button class="terminal-button close"></button>
+                        <button class="terminal-button minimize"></button>
+                        <button class="terminal-button maximize"></button>
+                    </div>
+                </div>
+                <div class="terminal-body">
+                    <div class="coverage-heatmap" id="coverage-heatmap">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Run Details Modal -->
+    <div id="run-details-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Test Run Details</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="run-summary">
+                    <!-- Populated by JavaScript -->
+                </div>
+
+                <h4>Test Results</h4>
+                <table class="data-table results-table">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Test Name</th>
+                            <th>File</th>
+                            <th>Duration</th>
+                            <th>Error</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Details Modal -->
+    <div id="error-details-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Error Details</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="error-content">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/js/websocket-dashboard.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+
+    <!-- Update current time -->
+    <script>
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const timeEl = document.getElementById('current-time');
+            if (timeEl) {
+                timeEl.textContent = timeString;
+            }
+        }
+
+        // Update time every second
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+</body>
+</html>

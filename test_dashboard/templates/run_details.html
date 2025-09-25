@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Django-Ollama Test Run Details">
+    <title>Test Run Details - Django-Ollama Dashboard</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+
+    <!-- Additional styles for run details -->
+    <style>
+        .run-header {
+            background: var(--gradient-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .run-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-accent);
+        }
+
+        .run-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .run-id {
+            font-family: monospace;
+            background: var(--bg-tertiary);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            color: var(--color-blue);
+            font-weight: bold;
+        }
+
+        .run-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .meta-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .meta-value {
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .command-display {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--color-aqua);
+            margin-top: 0.5rem;
+            word-break: break-all;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .test-results-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .results-filters {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-button {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+            font-size: 0.85rem;
+        }
+
+        .filter-button:hover,
+        .filter-button.active {
+            background: var(--color-blue);
+            color: var(--bg-primary);
+        }
+
+        .filter-button.passed.active { background: var(--color-passed); }
+        .filter-button.failed.active { background: var(--color-failed); }
+        .filter-button.error.active { background: var(--color-error); }
+        .filter-button.skipped.active { background: var(--color-skipped); }
+
+        .test-result-item {
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+            transition: all var(--transition-fast);
+        }
+
+        .test-result-item:hover {
+            border-color: var(--color-blue);
+        }
+
+        .test-result-header {
+            padding: 0.75rem 1rem;
+            background: var(--bg-tertiary);
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .test-result-summary {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex: 1;
+        }
+
+        .test-name-display {
+            font-family: monospace;
+            color: var(--color-blue);
+            font-weight: 500;
+        }
+
+        .test-duration {
+            color: var(--color-purple);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .expand-icon {
+            color: var(--text-muted);
+            transition: transform var(--transition-fast);
+        }
+
+        .test-result-item.expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+
+        .test-result-details {
+            padding: 1rem;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border-color);
+            display: none;
+        }
+
+        .test-result-item.expanded .test-result-details {
+            display: block;
+        }
+
+        .error-display {
+            background: var(--bg-secondary);
+            border: 1px solid var(--color-failed);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: var(--color-failed);
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+
+        .test-file-path {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-family: monospace;
+        }
+
+        .coverage-summary {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .coverage-metric {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .coverage-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--color-blue);
+        }
+
+        .coverage-chart-container {
+            margin-top: 1rem;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--color-blue);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            transition: all var(--transition-fast);
+            margin-bottom: 2rem;
+        }
+
+        .back-link:hover {
+            background: var(--bg-secondary);
+            border-color: var(--color-blue);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-top: 0.25rem;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+            font-family: inherit;
+            margin-bottom: 1rem;
+        }
+
+        .search-box::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--color-blue);
+        }
+
+        @media (max-width: 968px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .run-meta {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+    </style>
+
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧪</text></svg>">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    Django-Ollama Test Dashboard
+                </div>
+                <div class="header-controls">
+                    <button id="refresh-button" class="theme-toggle">
+                        🔄 Refresh
+                    </button>
+                    <button id="theme-toggle" class="theme-toggle">
+                        ☀️ Light
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Status Line -->
+    <div class="status-line">
+        <div class="status-line-left">
+            <span>NORMAL</span>
+            <span>|</span>
+            <span id="current-time">--:--</span>
+            <span>|</span>
+            <span>Test Run Details</span>
+        </div>
+        <div class="status-line-right">
+            <span id="run-status">Loading...</span>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Back Link -->
+            <a href="/" class="back-link">
+                ← Back to Dashboard
+            </a>
+
+            <!-- Loading Indicator -->
+            <div id="loading-indicator" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                Loading test run details...
+            </div>
+
+            <!-- Run Header -->
+            <div class="run-header" id="run-header">
+                <div class="run-title">
+                    <h1>Test Run</h1>
+                    <div class="run-id" id="run-id">loading...</div>
+                    <div class="status-dot" id="run-status-dot"></div>
+                </div>
+
+                <div class="run-meta" id="run-meta">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Results Grid -->
+            <div class="results-grid">
+                <!-- Test Results Section -->
+                <div class="test-results-section">
+                    <h3>🧪 Test Results</h3>
+
+                    <!-- Stats Grid -->
+                    <div class="stats-grid" id="test-stats">
+                        <!-- Populated by JavaScript -->
+                    </div>
+
+                    <!-- Search and Filters -->
+                    <input type="text" class="search-box" id="search-tests" placeholder="Search tests...">
+
+                    <div class="results-filters">
+                        <button class="filter-button active" data-status="all">All</button>
+                        <button class="filter-button passed" data-status="PASSED">Passed</button>
+                        <button class="filter-button failed" data-status="FAILED">Failed</button>
+                        <button class="filter-button error" data-status="ERROR">Error</button>
+                        <button class="filter-button skipped" data-status="SKIPPED">Skipped</button>
+                    </div>
+
+                    <!-- Test Results List -->
+                    <div id="test-results-list">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Coverage Section -->
+                <div class="coverage-summary">
+                    <h3>🎯 Coverage Summary</h3>
+
+                    <div class="coverage-metric">
+                        <div class="coverage-value" id="coverage-percentage">--%</div>
+                        <div class="metric-subtitle">Line Coverage</div>
+                    </div>
+
+                    <div class="coverage-chart-container" style="height: 200px; position: relative;">
+                        <canvas id="coverage-detail-chart"></canvas>
+                    </div>
+
+                    <div class="stats-grid" style="margin-top: 1rem;">
+                        <div class="stat-item">
+                            <div class="stat-value" id="total-lines">--</div>
+                            <div class="stat-label">Total Lines</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="covered-lines">--</div>
+                            <div class="stat-label">Covered</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="/static/js/dashboard.js"></script>
+
+    <script>
+        class RunDetailsPage {
+            constructor() {
+                this.runId = this.getRunIdFromUrl();
+                this.currentFilter = 'all';
+                this.testResults = [];
+                this.filteredResults = [];
+
+                this.init();
+            }
+
+            getRunIdFromUrl() {
+                const path = window.location.pathname;
+                const matches = path.match(/\/runs\/([^\/]+)/);
+                return matches ? matches[1] : null;
+            }
+
+            async init() {
+                if (!this.runId) {
+                    this.showError('No run ID specified');
+                    return;
+                }
+
+                this.setupEventListeners();
+                await this.loadRunDetails();
+            }
+
+            setupEventListeners() {
+                // Filter buttons
+                document.querySelectorAll('.filter-button').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.setFilter(e.target.dataset.status);
+                    });
+                });
+
+                // Search box
+                const searchBox = document.getElementById('search-tests');
+                if (searchBox) {
+                    searchBox.addEventListener('input', (e) => {
+                        this.filterResults(e.target.value);
+                    });
+                }
+            }
+
+            async loadRunDetails() {
+                try {
+                    this.showLoading();
+
+                    // Load run details
+                    const runResponse = await fetch(`/api/dashboard/runs/${this.runId}`);
+                    const runData = await runResponse.json();
+
+                    if (runData.status === 'error') {
+                        throw new Error(runData.detail || 'Failed to load run details');
+                    }
+
+                    // Load test results
+                    const resultsResponse = await fetch(`/api/dashboard/runs/${this.runId}/results`);
+                    const resultsData = await resultsResponse.json();
+
+                    // Load coverage data
+                    const coverageResponse = await fetch(`/api/dashboard/runs/${this.runId}/coverage`);
+                    const coverageData = await coverageResponse.json();
+
+                    this.populateRunHeader(runData.data);
+                    this.populateTestResults(resultsData.data || []);
+                    this.populateCoverageData(coverageData.data || {});
+
+                    this.hideLoading();
+
+                } catch (error) {
+                    console.error('Failed to load run details:', error);
+                    this.showError('Failed to load test run details');
+                    this.hideLoading();
+                }
+            }
+
+            populateRunHeader(run) {
+                // Update run ID
+                const runIdEl = document.getElementById('run-id');
+                if (runIdEl) {
+                    runIdEl.textContent = run.run_id.slice(0, 8);
+                }
+
+                // Update status dot
+                const statusDot = document.getElementById('run-status-dot');
+                if (statusDot) {
+                    statusDot.className = `status-dot ${run.status.toLowerCase()}`;
+                }
+
+                // Update status line
+                const statusLine = document.getElementById('run-status');
+                if (statusLine) {
+                    statusLine.textContent = `Status: ${run.status}`;
+                }
+
+                // Update meta information
+                const metaEl = document.getElementById('run-meta');
+                if (metaEl) {
+                    metaEl.innerHTML = `
+                        <div class="meta-item">
+                            <div class="meta-label">Started</div>
+                            <div class="meta-value">${this.formatDateTime(run.started_at)}</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Duration</div>
+                            <div class="meta-value">${this.formatDuration(run.duration_seconds)}</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Total Tests</div>
+                            <div class="meta-value">${run.total_tests || 0}</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Success Rate</div>
+                            <div class="meta-value">${Math.round(run.success_rate || 0)}%</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Git Branch</div>
+                            <div class="meta-value">${run.git_branch || 'N/A'}</div>
+                        </div>
+                        <div class="meta-item">
+                            <div class="meta-label">Git Commit</div>
+                            <div class="meta-value">${run.git_commit ? run.git_commit.slice(0, 8) : 'N/A'}</div>
+                        </div>
+                        ${run.test_command ? `
+                        <div class="meta-item" style="grid-column: 1 / -1;">
+                            <div class="meta-label">Command</div>
+                            <div class="command-display">${run.test_command}</div>
+                        </div>
+                        ` : ''}
+                    `;
+                }
+            }
+
+            populateTestResults(results) {
+                this.testResults = results;
+                this.filteredResults = results;
+
+                // Update stats
+                const stats = this.calculateStats(results);
+                this.updateTestStats(stats);
+
+                // Render results
+                this.renderTestResults();
+            }
+
+            calculateStats(results) {
+                const stats = {
+                    total: results.length,
+                    passed: 0,
+                    failed: 0,
+                    error: 0,
+                    skipped: 0
+                };
+
+                results.forEach(result => {
+                    stats[result.status.toLowerCase()]++;
+                });
+
+                return stats;
+            }
+
+            updateTestStats(stats) {
+                const statsEl = document.getElementById('test-stats');
+                if (statsEl) {
+                    statsEl.innerHTML = `
+                        <div class="stat-item">
+                            <div class="stat-value">${stats.total}</div>
+                            <div class="stat-label">Total</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: var(--color-passed);">${stats.passed}</div>
+                            <div class="stat-label">Passed</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: var(--color-failed);">${stats.failed}</div>
+                            <div class="stat-label">Failed</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: var(--color-error);">${stats.error}</div>
+                            <div class="stat-label">Error</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: var(--color-skipped);">${stats.skipped}</div>
+                            <div class="stat-label">Skipped</div>
+                        </div>
+                    `;
+                }
+            }
+
+            renderTestResults() {
+                const listEl = document.getElementById('test-results-list');
+                if (!listEl) return;
+
+                if (this.filteredResults.length === 0) {
+                    listEl.innerHTML = '<div class="loading">No test results match the current filter.</div>';
+                    return;
+                }
+
+                listEl.innerHTML = '';
+
+                this.filteredResults.forEach((result, index) => {
+                    const resultEl = document.createElement('div');
+                    resultEl.className = 'test-result-item';
+                    resultEl.innerHTML = `
+                        <div class="test-result-header" onclick="this.parentElement.classList.toggle('expanded')">
+                            <div class="test-result-summary">
+                                <span class="status-dot ${result.status.toLowerCase()}"></span>
+                                <div>
+                                    <div class="test-name-display">${result.test_name}</div>
+                                    <div class="test-file-path">${result.test_file}</div>
+                                </div>
+                            </div>
+                            <div class="test-duration">${this.formatDuration(result.duration_seconds)}</div>
+                            <div class="expand-icon">▶</div>
+                        </div>
+                        <div class="test-result-details">
+                            <div><strong>Test Method:</strong> ${result.test_method}</div>
+                            <div><strong>Test Class:</strong> ${result.test_class || 'N/A'}</div>
+                            <div><strong>Test Type:</strong> ${result.test_type}</div>
+                            <div><strong>Duration:</strong> ${this.formatDuration(result.duration_seconds)}</div>
+                            <div><strong>Setup Duration:</strong> ${this.formatDuration(result.setup_duration)}</div>
+                            <div><strong>Teardown Duration:</strong> ${this.formatDuration(result.teardown_duration)}</div>
+                            <div><strong>Assertions:</strong> ${result.assertions_count}</div>
+                            ${result.error_message ? `
+                            <div><strong>Error Message:</strong></div>
+                            <div class="error-display">${result.error_message}</div>
+                            ` : ''}
+                            ${result.error_traceback ? `
+                            <div><strong>Traceback:</strong></div>
+                            <div class="error-display">${result.error_traceback}</div>
+                            ` : ''}
+                        </div>
+                    `;
+
+                    listEl.appendChild(resultEl);
+                });
+            }
+
+            populateCoverageData(coverage) {
+                // Update coverage percentage
+                const percentageEl = document.getElementById('coverage-percentage');
+                if (percentageEl) {
+                    percentageEl.textContent = `${Math.round(coverage.line_coverage || 0)}%`;
+                }
+
+                // Update coverage stats
+                const totalLinesEl = document.getElementById('total-lines');
+                const coveredLinesEl = document.getElementById('covered-lines');
+
+                if (totalLinesEl) {
+                    totalLinesEl.textContent = coverage.total_lines || 0;
+                }
+
+                if (coveredLinesEl) {
+                    coveredLinesEl.textContent = coverage.covered_lines || 0;
+                }
+
+                // Update coverage chart
+                this.updateCoverageChart(coverage);
+            }
+
+            updateCoverageChart(coverage) {
+                const canvas = document.getElementById('coverage-detail-chart');
+                if (!canvas) return;
+
+                const ctx = canvas.getContext('2d');
+
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Covered', 'Uncovered'],
+                        datasets: [{
+                            data: [
+                                coverage.covered_lines || 0,
+                                (coverage.total_lines || 0) - (coverage.covered_lines || 0)
+                            ],
+                            backgroundColor: [
+                                this.getThemeColor('--color-passed'),
+                                this.getThemeColor('--color-failed')
+                            ],
+                            borderColor: this.getThemeColor('--bg-primary'),
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: this.getThemeColor('--text-primary'),
+                                    padding: 15
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            setFilter(status) {
+                this.currentFilter = status;
+
+                // Update active button
+                document.querySelectorAll('.filter-button').forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.status === status);
+                });
+
+                // Filter results
+                this.filterResults();
+            }
+
+            filterResults(searchQuery = '') {
+                let filtered = this.testResults;
+
+                // Apply status filter
+                if (this.currentFilter !== 'all') {
+                    filtered = filtered.filter(result => result.status === this.currentFilter);
+                }
+
+                // Apply search filter
+                if (searchQuery) {
+                    const query = searchQuery.toLowerCase();
+                    filtered = filtered.filter(result =>
+                        result.test_name.toLowerCase().includes(query) ||
+                        result.test_file.toLowerCase().includes(query) ||
+                        (result.test_class && result.test_class.toLowerCase().includes(query))
+                    );
+                }
+
+                this.filteredResults = filtered;
+                this.renderTestResults();
+            }
+
+            // Utility methods
+            formatDuration(seconds) {
+                if (!seconds || seconds < 1) return '< 1s';
+                if (seconds < 60) return `${Math.round(seconds)}s`;
+                if (seconds < 3600) return `${Math.round(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+                return `${Math.floor(seconds / 3600)}h ${Math.round((seconds % 3600) / 60)}m`;
+            }
+
+            formatDateTime(dateString) {
+                if (!dateString) return '-';
+                const date = new Date(dateString);
+                return date.toLocaleString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            }
+
+            getThemeColor(cssVar, alpha = 1) {
+                const style = getComputedStyle(document.documentElement);
+                const color = style.getPropertyValue(cssVar).trim();
+                return color;
+            }
+
+            showLoading() {
+                const loader = document.getElementById('loading-indicator');
+                if (loader) {
+                    loader.style.display = 'block';
+                }
+            }
+
+            hideLoading() {
+                const loader = document.getElementById('loading-indicator');
+                if (loader) {
+                    loader.style.display = 'none';
+                }
+            }
+
+            showError(message) {
+                const container = document.querySelector('.container');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="terminal-window">
+                            <div class="terminal-header">
+                                <div class="terminal-title">❌ Error</div>
+                            </div>
+                            <div class="terminal-body">
+                                <p style="color: var(--color-failed); font-size: 1.1rem;">
+                                    ${message}
+                                </p>
+                                <a href="/" class="back-link" style="margin-top: 1rem; display: inline-flex;">
+                                    ← Back to Dashboard
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Initialize the page
+        const runDetailsPage = new RunDetailsPage();
+
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const timeEl = document.getElementById('current-time');
+            if (timeEl) {
+                timeEl.textContent = timeString;
+            }
+        }
+
+        updateTime();
+        setInterval(updateTime, 1000);
+    </script>
+</body>
+</html>
