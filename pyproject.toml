@@ -1,0 +1,206 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "django-ollama"
+dynamic = ["version"]
+description = "Django integration for Ollama local LLM with real-time chat capabilities"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Claude Code", email = "noreply@anthropic.com"},
+]
+maintainers = [
+    {name = "Claude Code", email = "noreply@anthropic.com"},
+]
+keywords = [
+    "django",
+    "ollama",
+    "llm",
+    "local",
+    "ai",
+    "chat",
+    "websocket",
+    "machine-learning",
+    "nlp"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "Django>=4.2",
+    "ollama>=0.3.0",
+    "channels>=4.0.0",
+    "channels-redis>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-django>=4.5.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+    "pre-commit>=3.0.0",
+    "tox>=4.0.0",
+]
+docs = [
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+    "sphinxcontrib-django>=2.0.0",
+    "myst-parser>=1.0.0",
+]
+testing = [
+    "pytest>=7.0",
+    "pytest-django>=4.5.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "factory-boy>=3.2.0",
+    "freezegun>=1.2.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/anthropics/django-ollama"
+Documentation = "https://django-ollama.readthedocs.io/"
+Repository = "https://github.com/anthropics/django-ollama.git"
+"Bug Tracker" = "https://github.com/anthropics/django-ollama/issues"
+Changelog = "https://github.com/anthropics/django-ollama/blob/main/CHANGELOG.md"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["django_ollama*"]
+
+[tool.setuptools_scm]
+write_to = "src/django_ollama/_version.py"
+
+[tool.black]
+line-length = 88
+target-version = ["py39", "py310", "py311", "py312", "py313"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_django = "django"
+known_first_party = "django_ollama"
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "DJANGO", "FIRSTPARTY", "LOCALFOLDER"]
+
+[tool.mypy]
+python_version = "3.9"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+plugins = ["mypy_django_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "tests.settings"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+addopts = "--cov=django_ollama --cov-report=term-missing --cov-report=html"
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["src/django_ollama"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/venv/*",
+    "*/env/*",
+    "setup.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py{39,310,311,312}-django{42,50,51}
+isolated_build = true
+
+[testenv]
+deps =
+    django42: Django>=4.2,<5.0
+    django50: Django>=5.0,<5.1
+    django51: Django>=5.1,<5.2
+    pytest
+    pytest-django
+    pytest-asyncio
+    pytest-cov
+    channels
+    channels-redis
+    ollama
+commands = pytest {posargs}
+
+[testenv:lint]
+deps =
+    black
+    isort
+    flake8
+    mypy
+commands =
+    black --check src tests
+    isort --check-only src tests
+    flake8 src tests
+    mypy src
+
+[testenv:docs]
+deps =
+    sphinx
+    sphinx-rtd-theme
+    sphinxcontrib-django
+    myst-parser
+commands =
+    sphinx-build -b html docs docs/_build/html
+"""

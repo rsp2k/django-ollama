@@ -1,0 +1,58 @@
+# Include important project files
+include README.md
+include LICENSE
+include MANIFEST.in
+include Makefile
+include requirements-dev.txt
+
+# Include configuration files
+include pyproject.toml
+include pytest.ini
+include .pre-commit-config.yaml
+
+# Include test files and test data
+recursive-include tests *.py
+recursive-include tests *.json
+recursive-include tests *.yaml
+recursive-include tests *.txt
+
+# Include examples
+recursive-include examples *.py
+recursive-include examples *.html
+recursive-include examples *.js
+recursive-include examples *.css
+recursive-include examples *.md
+
+# Include documentation source
+recursive-include docs *.rst
+recursive-include docs *.py
+recursive-include docs *.txt
+recursive-include docs Makefile
+
+# Exclude build artifacts and cache files
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude __pycache__
+global-exclude .pytest_cache
+global-exclude .coverage
+global-exclude htmlcov
+global-exclude .mypy_cache
+global-exclude .tox
+global-exclude *.egg-info
+global-exclude build
+global-exclude dist
+
+# Exclude editor and IDE files
+global-exclude .vscode
+global-exclude .idea
+global-exclude *.sublime-*
+global-exclude .DS_Store
+global-exclude Thumbs.db
+
+# Exclude development and CI files from distribution
+exclude .gitignore
+exclude .github
+recursive-exclude .github *
+exclude tox.ini
+exclude .pre-commit-config.yaml

@@ -1,0 +1,1 @@
+# Test Django app for testing django-ollama functionality

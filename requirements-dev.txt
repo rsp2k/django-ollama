@@ -1,0 +1,52 @@
+# Development dependencies for django-ollama package
+# These are in addition to the runtime dependencies specified in pyproject.toml
+
+# Testing framework and utilities
+pytest>=7.0.0
+pytest-django>=4.5.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+pytest-mock>=3.10.0
+
+# Testing utilities for Django
+django-test-plus>=2.2.0
+factory-boy>=3.2.0
+freezegun>=1.2.0
+
+# Testing for async/websockets
+pytest-timeout>=2.1.0
+channels-testing>=4.0.0
+
+# Code quality and linting
+black>=23.0.0
+isort>=5.12.0
+flake8>=6.0.0
+mypy>=1.0.0
+pre-commit>=3.0.0
+
+# Django type stubs
+django-stubs>=4.2.0
+djangorestframework-stubs>=3.14.0
+
+# Development tools
+ipython>=8.0.0
+ipdb>=0.13.0
+django-debug-toolbar>=4.0.0
+django-extensions>=3.2.0
+
+# Documentation
+sphinx>=6.0.0
+sphinx-rtd-theme>=1.2.0
+sphinx-autobuild>=2021.3.0
+
+# Security scanning
+bandit>=1.7.0
+safety>=2.3.0
+
+# Packaging tools
+build>=0.10.0
+twine>=4.0.0
+setuptools-scm>=7.0.0
+
+# Performance testing
+locust>=2.14.0
