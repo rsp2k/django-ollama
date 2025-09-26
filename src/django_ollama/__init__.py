@@ -16,7 +16,12 @@ except ImportError:
 default_app_config = "django_ollama.apps.DjangoOllamaConfig"
 
 # Public API exports
-from .api import chat, generate, achat, agenerate
+from .api import (
+    chat, generate, achat, agenerate, get_default_model,
+    list_models, pull_model, show_model,
+    alist_models, apull_model, ashow_model,
+    OllamaConnectionError, OllamaModelError, OllamaValidationError
+)
 
 # Conditional imports for Django models (only when Django is available and configured)
 __all__ = [
@@ -25,6 +30,16 @@ __all__ = [
     "generate",
     "achat",
     "agenerate",
+    "get_default_model",
+    "list_models",
+    "pull_model",
+    "show_model",
+    "alist_models",
+    "apull_model",
+    "ashow_model",
+    "OllamaConnectionError",
+    "OllamaModelError",
+    "OllamaValidationError",
 ]
 
 try:
