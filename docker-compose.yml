@@ -1,0 +1,71 @@
+services:
+  django-ollama:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: django-ollama-app
+    environment:
+      - DJANGO_SETTINGS_MODULE=demo_project.settings
+      - DOMAIN=${DOMAIN:-django-ollama.l.supported.systems}
+      - DJANGO_OLLAMA_OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
+      - DJANGO_OLLAMA_OLLAMA_DEFAULT_MODEL=${OLLAMA_MODEL:-llama3.2:1b}
+      - DJANGO_OLLAMA_CONTEXT_INJECTION_ENABLED=true
+      - DJANGO_OLLAMA_ENABLE_STREAMING_RESPONSES=true
+      - DJANGO_OLLAMA_WEBSOCKET_MESSAGE_SIZE_LIMIT=2097152
+      - DJANGO_OLLAMA_RATE_LIMIT_REQUESTS_PER_MINUTE=30
+      - SERVER_PORT=${SERVER_PORT:-8000}
+      - SERVER_HOST=${SERVER_HOST:-0.0.0.0}
+      - PYTHONUNBUFFERED=1
+      - SETUPTOOLS_SCM_PRETEND_VERSION=0.1.0
+    volumes:
+      - django-media:/app/demo_project/media
+      - django-logs:/app/demo_project/logs
+      - django-db:/app/demo_project/db
+      # Development volume mounts (only used when BUILD_TARGET=development)
+      - ${DEV_VOLUME_MOUNT:-/dev/null}:${DEV_VOLUME_OPTIONS:-/dev/null}
+    networks:
+      - caddy
+      - default
+    labels:
+      caddy: ${DOMAIN:-django-ollama.l.supported.systems}
+      caddy.reverse_proxy: "{{upstreams ${SERVER_PORT:-8000}}}"
+      caddy.header: "X-Forwarded-Proto https"
+      caddy.encode: "gzip"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${SERVER_PORT:-8000}/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: django-ollama-redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - default
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  redis_data:
+    driver: local
+  django-media:
+    driver: local
+  django-logs:
+    driver: local
+  django-db:
+    driver: local
+
+networks:
+  caddy:
+    external: true
+  default:
+    driver: bridge

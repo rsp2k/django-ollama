@@ -1,0 +1,87 @@
+{% extends "knowledge_demo/base.html" %}
+
+{% block title %}Create Project - Django-Ollama Demo{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3><i class="fas fa-folder-plus"></i> Create New Project</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Project Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required
+                                   placeholder="Enter project name">
+                            <small class="form-text text-muted">Give your project a descriptive name</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="namespace" class="form-label">Namespace</label>
+                            <select class="form-control" id="namespace" name="namespace" required>
+                                <option value="">Select a namespace...</option>
+                                {% for ns in namespaces %}
+                                    <option value="{{ ns.slug }}">{{ ns.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">Choose which namespace this project belongs to</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="4"
+                                      placeholder="Describe your project..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_public" name="is_public">
+                                <label class="form-check-label" for="is_public">
+                                    Make this project public
+                                </label>
+                                <small class="form-text text-muted d-block">
+                                    Public projects can be viewed by anyone
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="tags" class="form-label">Tags (optional)</label>
+                            <input type="text" class="form-control" id="tags" name="tags"
+                                   placeholder="ai, chatbot, demo (comma separated)">
+                            <small class="form-text text-muted">Add tags to help categorize your project</small>
+                        </div>
+
+                        <hr>
+
+                        <div class="btn-group justify-between">
+                            <a href="{% url 'knowledge_demo:index' %}" class="btn secondary">
+                                <i class="fas fa-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn success">
+                                <i class="fas fa-save"></i> Create Project
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% if messages %}
+                <div class="mt-3">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

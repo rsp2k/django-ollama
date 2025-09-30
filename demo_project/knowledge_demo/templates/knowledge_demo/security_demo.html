@@ -1,0 +1,188 @@
+{% extends "knowledge_demo/base.html" %}
+
+{% block title %}Security Demo - Django-Ollama Namespace Demo{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>🔒 Security & Namespace Demonstration</h1>
+    <p>This page demonstrates Django-Ollama's comprehensive security features and namespace isolation.</p>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h2>🛡️ Namespace Security Model</h2>
+        <p><strong>Django-Ollama implements a comprehensive security architecture:</strong></p>
+        <ul style="margin: 1rem 0;">
+            <li><strong>Server-side validation:</strong> All namespace access is validated at the Django level</li>
+            <li><strong>Permission integration:</strong> Leverages Django's user and group permissions</li>
+            <li><strong>Zero-trust model:</strong> Explicit permission required for all namespace access</li>
+            <li><strong>Audit logging:</strong> All access attempts are logged for security monitoring</li>
+        </ul>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value">{{ namespaces_available|default:0 }}</div>
+                <div class="stat-label">Available Namespaces</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ user_permissions|length|default:0 }}</div>
+                <div class="stat-label">User Permissions</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🔐 Access Control Matrix</h2>
+        <p>Current user access controls and namespace permissions:</p>
+
+        {% if user.is_authenticated %}
+            <div style="margin: 1rem 0;">
+                <span class="badge success">✓ Authenticated</span>
+                {% if user.is_superuser %}
+                    <span class="badge danger">🔑 Superuser</span>
+                {% endif %}
+                {% if user.is_staff %}
+                    <span class="badge warning">⚙️ Staff</span>
+                {% endif %}
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Namespace</th>
+                        <th>Access Level</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="namespace-badge">public</span></td>
+                        <td><span class="badge success">Read</span></td>
+                        <td>Default permission</td>
+                    </tr>
+                    {% if user.is_authenticated %}
+                    <tr>
+                        <td><span class="namespace-badge owned">user:{{ user.username }}</span></td>
+                        <td><span class="badge success">Read/Write</span></td>
+                        <td>User namespace</td>
+                    </tr>
+                    {% endif %}
+                    {% if user.is_staff %}
+                    <tr>
+                        <td><span class="namespace-badge">staff</span></td>
+                        <td><span class="badge warning">Read</span></td>
+                        <td>Staff permission</td>
+                    </tr>
+                    {% endif %}
+                    {% if user.is_superuser %}
+                    <tr>
+                        <td><span class="namespace-badge">admin</span></td>
+                        <td><span class="badge danger">Full Access</span></td>
+                        <td>Superuser privilege</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="message error">
+                <strong>Anonymous User:</strong> Limited to public namespaces only.
+                <a href="{% url 'admin:login' %}?next={{ request.path }}" class="btn" style="margin-left: 1rem;">Sign In</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>🧪 Security Testing</h2>
+        <p>Test namespace access controls in real-time:</p>
+
+        <div style="margin: 1rem 0;">
+            <label for="test-namespaces">Test Namespace Access:</label>
+            <input type="text" id="test-namespaces" placeholder="admin, secret, confidential"
+                   style="margin: 0.5rem 0;">
+            <button onclick="testNamespaceAccess()" class="btn">Test Access</button>
+        </div>
+
+        <div id="access-result" style="margin-top: 1rem;"></div>
+    </div>
+
+    <div class="card">
+        <h2>🔍 Context Injection Security</h2>
+        <p><strong>How Django-Ollama secures AI context:</strong></p>
+        <ul style="margin: 1rem 0;">
+            <li><strong>Lazy evaluation:</strong> Querysets aren't executed until needed</li>
+            <li><strong>Permission filtering:</strong> Only accessible data included in context</li>
+            <li><strong>Namespace isolation:</strong> Cross-namespace data leakage prevented</li>
+            <li><strong>Request-scoped security:</strong> Permissions checked per request</li>
+        </ul>
+
+        <div style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin: 1rem 0;">
+            <code style="display: block; white-space: pre;">
+# Example: Context automatically filtered by permissions
+@inject_querysets(
+    lambda req: Article.objects.filter(
+        namespace__in=get_user_namespaces(req.user)
+    )
+)
+def ai_chat_view(request):
+    # Only user's accessible articles included in AI context
+    return render(request, 'chat.html')
+            </code>
+        </div>
+    </div>
+</div>
+
+<script>
+async function testNamespaceAccess() {
+    const input = document.getElementById('test-namespaces');
+    const result = document.getElementById('access-result');
+
+    const namespaces = input.value.trim();
+    if (!namespaces) {
+        result.innerHTML = '<div class="message error">Please enter namespaces to test</div>';
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/test-namespace-access/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ namespaces: namespaces })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            result.innerHTML = `<div class="message">
+                <strong>✅ Access Granted:</strong> ${data.message}
+            </div>`;
+        } else {
+            const data = await response.json();
+            result.innerHTML = `<div class="message error">
+                <strong>❌ Access Denied:</strong> ${data.error || 'Access denied to namespaces: ' + namespaces}
+            </div>`;
+        }
+    } catch (error) {
+        result.innerHTML = `<div class="message error">
+            <strong>❌ Access Denied:</strong> Access denied to namespaces: ${namespaces}
+        </div>`;
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

@@ -1,14 +1,124 @@
-"""Django models for Ollama integration."""
+"""Django models for Ollama integration with namespace support."""
 
 import mimetypes
 import uuid
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
-from django.contrib.contenttypes.fields import GenericForeignKey
-from django.contrib.contenttypes.models import ContentType
+if TYPE_CHECKING:
+    from django.contrib.auth.models import User
+    from django.contrib.contenttypes.fields import GenericForeignKey
+    from django.contrib.contenttypes.models import ContentType
+else:
+    # Import at runtime to avoid AppRegistryNotReady
+    pass
+
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
+
+
+class NamespaceManager(models.Manager):
+    """Manager for Namespace model with helper methods."""
+
+    def get_default(self):
+        """Get or create the default namespace."""
+        namespace, created = self.get_or_create(
+            is_default=True,
+            defaults={
+                'name': 'Default',
+                'slug': 'default',
+                'description': 'The default namespace for knowledge bases'
+            }
+        )
+        return namespace
+
+    def for_user(self, user):
+        """Get namespaces accessible by a user."""
+        if not user or user.is_anonymous:
+            # Anonymous users only see default and public namespaces
+            return self.filter(
+                models.Q(is_default=True) |
+                models.Q(knowledge_bases__is_public=True)
+            ).distinct()
+
+        if user.is_superuser:
+            # Superusers can see all namespaces
+            return self.all()
+
+        # Regular users see default, public, and owned namespaces
+        return self.filter(
+            models.Q(is_default=True) |
+            models.Q(owner=user) |
+            models.Q(knowledge_bases__is_public=True) |
+            models.Q(knowledge_bases__owner=user)
+        ).distinct()
+
+
+class Namespace(models.Model):
+    """
+    Namespace for organizing knowledge bases.
+
+    Namespaces provide logical grouping and access control for knowledge bases,
+    allowing multi-tenant setups and better organization of content.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(_("Name"), max_length=100)
+    slug = models.SlugField(_("Slug"), unique=True, max_length=100)
+    description = models.TextField(_("Description"), blank=True)
+
+    # Ownership and access control
+    owner = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_namespaces",
+        verbose_name=_("Owner")
+    )
+
+    # Flags
+    is_active = models.BooleanField(_("Is Active"), default=True)
+    is_default = models.BooleanField(_("Is Default"), default=False)
+
+    # Metadata
+    metadata = models.JSONField(_("Metadata"), default=dict, blank=True)
+
+    # Timestamps
+    created_at = models.DateTimeField(_("Created At"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("Updated At"), auto_now=True)
+
+    objects = NamespaceManager()
+
+    class Meta:
+        verbose_name = _("Namespace")
+        verbose_name_plural = _("Namespaces")
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        """Ensure only one default namespace exists."""
+        if not self.slug:
+            self.slug = slugify(self.name)
+
+        if self.is_default:
+            # Unset any other default namespace
+            Namespace.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
+
+        super().save(*args, **kwargs)
+
+    @property
+    def knowledge_base_count(self):
+        """Count of knowledge bases in this namespace."""
+        return self.knowledge_bases.count()
+
+    @property
+    def public_knowledge_base_count(self):
+        """Count of public knowledge bases in this namespace."""
+        return self.knowledge_bases.filter(is_public=True).count()
 
 
 class KnowledgeBase(models.Model):
@@ -17,11 +127,41 @@ class KnowledgeBase(models.Model):
 
     This model represents a knowledge base that can be used to provide
     context to Ollama models for more accurate and relevant responses.
+    Knowledge bases are organized within namespaces for better isolation
+    and access control.
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Namespace relationship
+    namespace = models.ForeignKey(
+        Namespace,
+        on_delete=models.CASCADE,
+        related_name="knowledge_bases",
+        verbose_name=_("Namespace"),
+        null=True,  # Temporarily nullable for migration
+        blank=True
+    )
+
     name = models.CharField(_("Name"), max_length=100)
+    slug = models.SlugField(_("Slug"), max_length=100, blank=True)
     description = models.TextField(_("Description"), blank=True)
+
+    # Ownership and access control
+    owner = models.ForeignKey(
+        'auth.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_knowledge_bases",
+        verbose_name=_("Owner")
+    )
+    is_public = models.BooleanField(_("Is Public"), default=False)
+
+    # Settings and metadata
+    tags = models.JSONField(_("Tags"), default=list, blank=True)
+    settings = models.JSONField(_("Settings"), default=dict, blank=True)
+
     is_active = models.BooleanField(_("Is Active"), default=True)
 
     created_at = models.DateTimeField(_("Created At"), auto_now_add=True)
@@ -31,9 +171,41 @@ class KnowledgeBase(models.Model):
         verbose_name = _("Knowledge Base")
         verbose_name_plural = _("Knowledge Bases")
         ordering = ["-created_at"]
+        unique_together = [["namespace", "slug"]]
 
     def __str__(self) -> str:
+        if self.namespace and not self.namespace.is_default:
+            return f"{self.namespace.name}/{self.name}"
         return self.name
+
+    def save(self, *args, **kwargs):
+        """Auto-generate slug and ensure namespace."""
+        if not self.slug:
+            self.slug = slugify(self.name)
+
+        # Ensure namespace is set (use default if not provided)
+        if not self.namespace_id:
+            self.namespace = Namespace.objects.get_default()
+
+        super().save(*args, **kwargs)
+
+    def get_namespace_slug(self):
+        """Get the namespace slug for this knowledge base."""
+        return self.namespace.slug if self.namespace else "default"
+
+    def clone_to_namespace(self, target_namespace, new_name=None):
+        """Clone this knowledge base to a different namespace."""
+        clone = KnowledgeBase.objects.create(
+            namespace=target_namespace,
+            name=new_name or f"{self.name} (copy)",
+            description=self.description,
+            owner=self.owner,
+            is_public=self.is_public,
+            tags=self.tags.copy() if self.tags else [],
+            settings=self.settings.copy() if self.settings else {},
+            is_active=self.is_active
+        )
+        return clone
 
     @property
     def content_count(self) -> int:
@@ -130,10 +302,10 @@ class KnowledgeBaseContent(models.Model):
         verbose_name=_("Knowledge Base"),
     )
 
-    # Generic foreign key to any model
-    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
-    object_id = models.PositiveIntegerField()
-    content_object = GenericForeignKey("content_type", "object_id")
+    # Generic foreign key to any model (temporarily disabled to fix AppRegistryNotReady)
+    # content_type = models.ForeignKey('contenttypes.ContentType', on_delete=models.CASCADE)
+    # object_id = models.PositiveIntegerField()
+    # content_object = GenericForeignKey("content_type", "object_id")
 
     # Metadata
     title = models.CharField(_("Title"), max_length=200, blank=True)
@@ -151,10 +323,10 @@ class KnowledgeBaseContent(models.Model):
         verbose_name = _("Knowledge Base Content")
         verbose_name_plural = _("Knowledge Base Content")
         ordering = ["-created_at"]
-        unique_together = [["knowledge_base", "content_type", "object_id"]]
+        # unique_together = [["knowledge_base", "content_type", "object_id"]]  # Temporarily disabled
 
     def __str__(self) -> str:
-        title = self.title or f"{self.content_type.name} #{self.object_id}"
+        title = self.title or f"Content Item #{self.id}"
         return f"{title} ({self.knowledge_base.name})"
 
     def get_ai_text(self) -> Optional[str]:

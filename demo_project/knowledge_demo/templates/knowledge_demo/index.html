@@ -1,0 +1,183 @@
+{% extends "knowledge_demo/base.html" %}
+
+{% block title %}Django-Ollama Namespace Demo - Home{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Welcome to Django-Ollama Namespace Demo</h2>
+    <p>This demo showcases the namespace system with server-side security enforcement.</p>
+
+    <div class="stats">
+        <div class="stat-item">
+            <div class="stat-value">{{ namespace_count }}</div>
+            <div class="stat-label">Accessible Namespaces</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ public_knowledge_bases|length }}</div>
+            <div class="stat-label">Public Knowledge Bases</div>
+        </div>
+        {% if user.is_authenticated %}
+        <div class="stat-item">
+            <div class="stat-value">{{ user_projects|length }}</div>
+            <div class="stat-label">Your Projects</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h2>📁 Accessible Namespaces</h2>
+        <p style="margin-bottom: 1rem; color: #6c757d;">
+            These are the namespaces you can access based on your permissions.
+        </p>
+        {% for ns in namespaces %}
+            <div style="margin-bottom: 0.8rem;">
+                <a href="{% url 'knowledge_demo:namespace_detail' ns.slug %}" style="text-decoration: none;">
+                    <span class="namespace-badge {% if ns.is_default %}default{% elif ns.owner == user %}owned{% endif %}">
+                        {{ ns.name }}
+                    </span>
+                </a>
+                {% if ns.is_default %}
+                    <span class="badge warning">DEFAULT</span>
+                {% endif %}
+                {% if ns.owner == user %}
+                    <span class="badge success">OWNED</span>
+                {% endif %}
+                <small style="color: #6c757d;">
+                    ({{ ns.knowledge_base_count }} KB{% if ns.knowledge_base_count != 1 %}s{% endif %})
+                </small>
+            </div>
+        {% empty %}
+            <p style="color: #6c757d;">No namespaces available.</p>
+        {% endfor %}
+    </div>
+
+    <div class="card">
+        <h2>📚 Public Knowledge Bases</h2>
+        <p style="margin-bottom: 1rem; color: #6c757d;">
+            Publicly accessible knowledge bases across namespaces.
+        </p>
+        {% for kb in public_knowledge_bases %}
+            <div style="margin-bottom: 0.8rem;">
+                <strong>{{ kb.name }}</strong>
+                <br>
+                <small style="color: #6c757d;">
+                    Namespace: <a href="{% url 'knowledge_demo:namespace_detail' kb.namespace.slug %}">
+                        {{ kb.namespace.name }}
+                    </a>
+                    {% if kb.owner %}
+                        | Owner: {{ kb.owner.username }}
+                    {% endif %}
+                </small>
+            </div>
+        {% empty %}
+            <p style="color: #6c757d;">No public knowledge bases available.</p>
+        {% endfor %}
+    </div>
+
+    {% if user.is_authenticated %}
+    <div class="card">
+        <h2>🗂️ Your Projects</h2>
+        <p style="margin-bottom: 1rem; color: #6c757d;">
+            Projects you own across different namespaces.
+        </p>
+        {% for project in user_projects %}
+            <div style="margin-bottom: 0.8rem;">
+                <a href="{% url 'knowledge_demo:project_detail' project.pk %}">
+                    <strong>{{ project.name }}</strong>
+                </a>
+                {% if project.is_public %}
+                    <span class="badge success">PUBLIC</span>
+                {% else %}
+                    <span class="badge">PRIVATE</span>
+                {% endif %}
+                <br>
+                <small style="color: #6c757d;">
+                    Namespace: {{ project.knowledge_base.namespace.name }}
+                    | Articles: {{ project.article_count }}
+                    | Documents: {{ project.document_count }}
+                </small>
+            </div>
+        {% empty %}
+            <p style="color: #6c757d;">
+                You don't have any projects yet.
+                <a href="{% url 'knowledge_demo:create_project' %}">Create your first project</a>
+            </p>
+        {% endfor %}
+
+        <div style="margin-top: 1.5rem;">
+            <a href="{% url 'knowledge_demo:create_project' %}" class="btn success">
+                ➕ Create New Project
+            </a>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <h2>🔒 Sign In to Create Projects</h2>
+        <p style="margin-bottom: 1rem; color: #6c757d;">
+            Sign in to create your own projects and access private namespaces.
+        </p>
+        <a href="{% url 'admin:login' %}?next={% url 'knowledge_demo:index' %}" class="btn">
+            Sign In
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>🔧 API Demo: Test Namespace Access Control</h2>
+    <p style="margin-bottom: 1rem;">
+        Test the server-side namespace validation. Try requesting unauthorized namespaces to see them get rejected.
+    </p>
+
+    <div style="margin-bottom: 1rem;">
+        <label for="namespace-request">Request namespaces (comma-separated):</label>
+        <input type="text" id="namespace-request" placeholder="e.g., default, secret, private" value="default, secret">
+    </div>
+
+    <button class="btn" onclick="testNamespaceAccess()">Test Access</button>
+
+    <div id="api-result" style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; display: none;">
+        <strong>API Response:</strong>
+        <pre style="margin-top: 0.5rem; white-space: pre-wrap;"></pre>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function testNamespaceAccess() {
+    const input = document.getElementById('namespace-request').value;
+    const namespaces = input.split(',').map(ns => ns.trim()).filter(ns => ns);
+
+    const params = new URLSearchParams();
+    namespaces.forEach(ns => params.append('namespaces[]', ns));
+
+    fetch(`{% url 'knowledge_demo:api_namespace_access' %}?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.style.display = 'block';
+
+            if (data.error) {
+                resultDiv.innerHTML = `
+                    <strong style="color: #dc3545;">❌ Access Denied:</strong>
+                    <pre style="margin-top: 0.5rem; color: #dc3545;">${data.error}</pre>
+                    <small>Requested: ${data.requested.join(', ')}</small>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <strong style="color: #28a745;">✅ Access Granted:</strong>
+                    <pre style="margin-top: 0.5rem;">${JSON.stringify(data, null, 2)}</pre>
+                `;
+            }
+        })
+        .catch(error => {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `<strong style="color: #dc3545;">Error:</strong> ${error}`;
+        });
+}
+</script>
+{% endblock %}

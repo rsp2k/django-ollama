@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Streaming Chat with Context Injection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .navbar { background: linear-gradient(45deg, #007bff, #6f42c1); }
+        .context-panel { background: #f8f9fa; border-left: 4px solid #007bff; }
+        .chat-container { max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; }
+        .message-user { background: #007bff; color: white; margin-left: 20%; }
+        .message-ai { background: #e9ecef; color: #495057; margin-right: 20%; }
+        .context-source { border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 10px; }
+        .context-source.active { border-color: #007bff; background: #e7f1ff; }
+        .context-preview { background: #fff3cd; border: 1px solid #ffeaa7; }
+        .streaming-indicator {
+            display: none;
+            background: #17a2b8;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.85em;
+        }
+        .typing-indicator {
+            padding: 10px;
+            font-style: italic;
+            color: #6c757d;
+        }
+        .context-stats {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        .context-item {
+            border-left: 3px solid #28a745;
+            padding-left: 10px;
+            margin-bottom: 8px;
+        }
+        .btn-context-test {
+            background: #17a2b8;
+            border-color: #17a2b8;
+            color: white;
+        }
+        .btn-context-test:hover {
+            background: #138496;
+            border-color: #117a8b;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark mb-4">
+        <div class="container">
+            <span class="navbar-brand">🚀 Streaming Chat with Context Injection</span>
+            <div>
+                <a href="/" class="btn btn-outline-light btn-sm">Home</a>
+                <a href="/context-demo/" class="btn btn-outline-light btn-sm">Context Demo</a>
+                <a href="/multi-context/" class="btn btn-outline-light btn-sm">Multi-Context</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Context Selection Panel -->
+            <div class="col-md-4">
+                <div class="context-panel p-3 rounded">
+                    <h4><i class="fas fa-cog"></i> Context Configuration</h4>
+                    <p class="text-muted">Select and configure querysets to inject into AI context</p>
+
+                    <div id="context-stats" class="mb-3">
+                        <h6>Available Content:</h6>
+                        <div class="context-stats">
+                            <div><i class="fas fa-newspaper"></i> Articles: {{ context_stats.articles.total }}</div>
+                            <div><i class="fas fa-file"></i> Documents: {{ context_stats.documents.total }}</div>
+                            <div><i class="fas fa-project-diagram"></i> Projects: {{ context_stats.projects.total }} ({{ context_stats.projects.public }} public)</div>
+                        </div>
+                    </div>
+
+                    <!-- Articles Configuration -->
+                    <div class="context-source" id="articles-source">
+                        <div class="p-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="" id="enable-articles">
+                                <label class="form-check-label" for="enable-articles">
+                                    <strong><i class="fas fa-newspaper text-primary"></i> Articles</strong>
+                                </label>
+                            </div>
+                            <div class="mt-2" id="articles-config" style="display: none;">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label class="form-label">Limit:</label>
+                                        <select class="form-select form-select-sm" id="articles-limit">
+                                            <option value="3">3 articles</option>
+                                            <option value="5" selected>5 articles</option>
+                                            <option value="10">10 articles</option>
+                                            <option value="20">20 articles</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Filter by tags:</label>
+                                        <select class="form-select form-select-sm" id="articles-tags" multiple>
+                                            {% for tag in available_tags %}
+                                            <option value="{{ tag }}">{{ tag }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Documents Configuration -->
+                    <div class="context-source" id="documents-source">
+                        <div class="p-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="" id="enable-documents">
+                                <label class="form-check-label" for="enable-documents">
+                                    <strong><i class="fas fa-file text-success"></i> Documents</strong>
+                                </label>
+                            </div>
+                            <div class="mt-2" id="documents-config" style="display: none;">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label class="form-label">Limit:</label>
+                                        <select class="form-select form-select-sm" id="documents-limit">
+                                            <option value="2">2 documents</option>
+                                            <option value="5" selected>5 documents</option>
+                                            <option value="10">10 documents</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Types:</label>
+                                        <select class="form-select form-select-sm" id="documents-types" multiple>
+                                            {% for doc_type in context_stats.documents.types %}
+                                            <option value="{{ doc_type }}">{{ doc_type }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Projects Configuration -->
+                    <div class="context-source" id="projects-source">
+                        <div class="p-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="" id="enable-projects">
+                                <label class="form-check-label" for="enable-projects">
+                                    <strong><i class="fas fa-project-diagram text-warning"></i> Projects</strong>
+                                </label>
+                            </div>
+                            <div class="mt-2" id="projects-config" style="display: none;">
+                                <div class="row">
+                                    <div class="col-6">
+                                        <label class="form-label">Limit:</label>
+                                        <select class="form-select form-select-sm" id="projects-limit">
+                                            <option value="2">2 projects</option>
+                                            <option value="5" selected>5 projects</option>
+                                            <option value="10">10 projects</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">Access:</label>
+                                        <select class="form-select form-select-sm" id="projects-access">
+                                            <option value="all">All projects</option>
+                                            <option value="public">Public only</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-context-test w-100 mb-2" id="test-context">
+                            <i class="fas fa-eye"></i> Preview Context
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="clear-context">
+                            <i class="fas fa-eraser"></i> Clear Selection
+                        </button>
+                    </div>
+
+                    <!-- Context Preview -->
+                    <div id="context-preview" style="display: none;" class="context-preview p-3 rounded mt-3">
+                        <h6><i class="fas fa-eye"></i> Context Preview</h6>
+                        <div id="context-preview-content"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Panel -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5><i class="fas fa-comments"></i> AI Chat with Dynamic Context</h5>
+                        <small>Experience streaming responses with your selected context</small>
+                    </div>
+                    <div class="card-body">
+                        <!-- Connection Status -->
+                        <div id="connection-status" class="alert alert-info">
+                            <i class="fas fa-spinner fa-spin"></i> Connecting to chat server...
+                        </div>
+
+                        <!-- Chat Messages -->
+                        <div id="chat-messages" class="chat-container p-3 mb-3" style="min-height: 300px;">
+                            <div class="text-center text-muted">
+                                <i class="fas fa-comment-dots fa-2x mb-2"></i>
+                                <p>Start a conversation! Select context sources and ask a question.</p>
+                            </div>
+                        </div>
+
+                        <!-- Context Status -->
+                        <div id="context-status" class="mb-3" style="display: none;">
+                            <div class="alert alert-info mb-2">
+                                <strong>Context Applied:</strong> <span id="context-sources-count">0</span> sources, <span id="context-items-count">0</span> total items
+                            </div>
+                        </div>
+
+                        <!-- Chat Input -->
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="message-input" placeholder="Ask a question about your selected context..." disabled>
+                            <button class="btn btn-primary" type="button" id="send-message" disabled>
+                                <i class="fas fa-paper-plane"></i> Send
+                            </button>
+                        </div>
+
+                        <!-- Streaming Indicator -->
+                        <div id="streaming-indicator" class="streaming-indicator mt-2">
+                            <i class="fas fa-circle-notch fa-spin"></i> AI is responding...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Usage Instructions -->
+                <div class="card mt-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h6><i class="fas fa-info-circle"></i> How to Use This Demo</h6>
+                    </div>
+                    <div class="card-body">
+                        <ol>
+                            <li><strong>Select Context Sources:</strong> Check the boxes for Articles, Documents, or Projects</li>
+                            <li><strong>Configure Limits:</strong> Set how many items to include from each source</li>
+                            <li><strong>Preview Context:</strong> Click "Preview Context" to see what will be sent to the AI</li>
+                            <li><strong>Ask Questions:</strong> Type questions that relate to your selected context</li>
+                            <li><strong>Watch Streaming:</strong> See AI responses appear in real-time with full context awareness</li>
+                        </ol>
+                        <div class="alert alert-warning mt-3">
+                            <small><i class="fas fa-exclamation-triangle"></i> Note: This demo requires Ollama to be running. If you see AI errors, the service may be unavailable.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // WebSocket connection
+        let socket = null;
+        let isConnected = false;
+
+        // DOM elements
+        const connectionStatus = document.getElementById('connection-status');
+        const chatMessages = document.getElementById('chat-messages');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-message');
+        const streamingIndicator = document.getElementById('streaming-indicator');
+        const contextStatus = document.getElementById('context-status');
+
+        // Context configuration elements
+        const enableArticles = document.getElementById('enable-articles');
+        const enableDocuments = document.getElementById('enable-documents');
+        const enableProjects = document.getElementById('enable-projects');
+        const testContextBtn = document.getElementById('test-context');
+        const clearContextBtn = document.getElementById('clear-context');
+        const contextPreview = document.getElementById('context-preview');
+        const contextPreviewContent = document.getElementById('context-preview-content');
+
+        // Initialize WebSocket connection
+        function connectWebSocket() {
+            const wsUrl = '{{ websocket_url|safe }}';
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = function(event) {
+                isConnected = true;
+                connectionStatus.className = 'alert alert-success';
+                connectionStatus.innerHTML = '<i class="fas fa-check-circle"></i> Connected to chat server';
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+
+                // Request available context
+                socket.send(JSON.stringify({
+                    type: 'get_available_context'
+                }));
+            };
+
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            socket.onclose = function(event) {
+                isConnected = false;
+                connectionStatus.className = 'alert alert-danger';
+                connectionStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i> Disconnected from chat server';
+                messageInput.disabled = true;
+                sendButton.disabled = true;
+            };
+
+            socket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                connectionStatus.className = 'alert alert-danger';
+                connectionStatus.innerHTML = '<i class="fas fa-exclamation-circle"></i> Connection error';
+            };
+        }
+
+        // Handle WebSocket messages
+        function handleWebSocketMessage(data) {
+            console.log('Received:', data);
+
+            switch(data.type) {
+                case 'connection_established':
+                    break;
+
+                case 'available_context':
+                    // Update context statistics if needed
+                    break;
+
+                case 'context_preview':
+                    showContextPreview(data);
+                    break;
+
+                case 'context_applied':
+                    showContextStatus(data);
+                    break;
+
+                case 'ai_response_start':
+                    streamingIndicator.style.display = 'block';
+                    addTypingIndicator();
+                    break;
+
+                case 'ai_response_chunk':
+                    updateStreamingResponse(data.content);
+                    break;
+
+                case 'ai_response_complete':
+                    streamingIndicator.style.display = 'none';
+                    removeTypingIndicator();
+                    break;
+
+                case 'ai_error':
+                    streamingIndicator.style.display = 'none';
+                    removeTypingIndicator();
+                    addMessage('AI Error: ' + data.message, 'ai', true);
+                    if (data.fallback_response) {
+                        addMessage(data.fallback_response, 'ai');
+                    }
+                    break;
+
+                case 'error':
+                    addMessage('Error: ' + data.message, 'system', true);
+                    break;
+            }
+        }
+
+        // Context configuration event listeners
+        enableArticles.addEventListener('change', function() {
+            const config = document.getElementById('articles-config');
+            const source = document.getElementById('articles-source');
+            if (this.checked) {
+                config.style.display = 'block';
+                source.classList.add('active');
+            } else {
+                config.style.display = 'none';
+                source.classList.remove('active');
+            }
+        });
+
+        enableDocuments.addEventListener('change', function() {
+            const config = document.getElementById('documents-config');
+            const source = document.getElementById('documents-source');
+            if (this.checked) {
+                config.style.display = 'block';
+                source.classList.add('active');
+            } else {
+                config.style.display = 'none';
+                source.classList.remove('active');
+            }
+        });
+
+        enableProjects.addEventListener('change', function() {
+            const config = document.getElementById('projects-config');
+            const source = document.getElementById('projects-source');
+            if (this.checked) {
+                config.style.display = 'block';
+                source.classList.add('active');
+            } else {
+                config.style.display = 'none';
+                source.classList.remove('active');
+            }
+        });
+
+        // Test context button
+        testContextBtn.addEventListener('click', function() {
+            const selectedContext = gatherSelectedContext();
+            if (Object.keys(selectedContext).length === 0) {
+                alert('Please select at least one context source');
+                return;
+            }
+
+            socket.send(JSON.stringify({
+                type: 'test_context',
+                selected_context: selectedContext
+            }));
+        });
+
+        // Clear context button
+        clearContextBtn.addEventListener('click', function() {
+            enableArticles.checked = false;
+            enableDocuments.checked = false;
+            enableProjects.checked = false;
+
+            document.getElementById('articles-config').style.display = 'none';
+            document.getElementById('documents-config').style.display = 'none';
+            document.getElementById('projects-config').style.display = 'none';
+
+            document.getElementById('articles-source').classList.remove('active');
+            document.getElementById('documents-source').classList.remove('active');
+            document.getElementById('projects-source').classList.remove('active');
+
+            contextPreview.style.display = 'none';
+            contextStatus.style.display = 'none';
+        });
+
+        // Send message
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || !isConnected) return;
+
+            const selectedContext = gatherSelectedContext();
+
+            // Add user message to chat
+            addMessage(message, 'user');
+
+            // Send to server
+            socket.send(JSON.stringify({
+                type: 'chat_message',
+                message: message,
+                selected_context: selectedContext
+            }));
+
+            messageInput.value = '';
+        }
+
+        // Gather selected context configuration
+        function gatherSelectedContext() {
+            const context = {};
+
+            if (enableArticles.checked) {
+                context.articles = {
+                    limit: parseInt(document.getElementById('articles-limit').value),
+                    tags: Array.from(document.getElementById('articles-tags').selectedOptions).map(o => o.value)
+                };
+            }
+
+            if (enableDocuments.checked) {
+                context.documents = {
+                    limit: parseInt(document.getElementById('documents-limit').value),
+                    types: Array.from(document.getElementById('documents-types').selectedOptions).map(o => o.value)
+                };
+            }
+
+            if (enableProjects.checked) {
+                context.projects = {
+                    limit: parseInt(document.getElementById('projects-limit').value),
+                    public_only: document.getElementById('projects-access').value === 'public'
+                };
+            }
+
+            return context;
+        }
+
+        // Show context preview
+        function showContextPreview(data) {
+            const content = data.context.map(item => `
+                <div class="context-item">
+                    <strong>${item.name}</strong> (Priority: ${item.priority}, Count: ${item.count}/${item.limit})
+                    ${item.preview_items.map(preview => `
+                        <div style="margin-left: 15px; font-size: 0.9em; color: #6c757d;">
+                            <em>${preview.type}:</em> ${preview.preview}
+                        </div>
+                    `).join('')}
+                </div>
+            `).join('');
+
+            contextPreviewContent.innerHTML = content;
+            contextPreview.style.display = 'block';
+        }
+
+        // Show context status
+        function showContextStatus(data) {
+            document.getElementById('context-sources-count').textContent = data.context_sources;
+            document.getElementById('context-items-count').textContent = data.total_context_items;
+            contextStatus.style.display = 'block';
+        }
+
+        // Add message to chat
+        function addMessage(content, sender, isError = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message-${sender} p-2 rounded mb-2`;
+
+            if (isError) {
+                messageDiv.className += ' border border-danger';
+            }
+
+            messageDiv.innerHTML = `
+                <div style="white-space: pre-wrap;">${content}</div>
+                <small class="opacity-75">${new Date().toLocaleTimeString()}</small>
+            `;
+
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Add typing indicator
+        function addTypingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.id = 'typing-indicator';
+            indicator.className = 'typing-indicator';
+            indicator.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> AI is typing...';
+            chatMessages.appendChild(indicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Remove typing indicator
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+
+        // Current streaming message element
+        let currentStreamingMessage = null;
+
+        // Update streaming response
+        function updateStreamingResponse(content) {
+            if (!currentStreamingMessage) {
+                // Create new message for streaming
+                currentStreamingMessage = document.createElement('div');
+                currentStreamingMessage.className = 'message-ai p-2 rounded mb-2';
+                currentStreamingMessage.innerHTML = `
+                    <div class="streaming-content" style="white-space: pre-wrap;"></div>
+                    <small class="opacity-75">${new Date().toLocaleTimeString()}</small>
+                `;
+
+                // Remove typing indicator if present
+                removeTypingIndicator();
+
+                chatMessages.appendChild(currentStreamingMessage);
+            }
+
+            // Update content
+            const contentDiv = currentStreamingMessage.querySelector('.streaming-content');
+            contentDiv.textContent += content;
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Event listeners
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Reset streaming message when response is complete
+        document.addEventListener('DOMContentLoaded', function() {
+            // Reset current streaming message when AI response is complete
+            const originalHandleMessage = handleWebSocketMessage;
+            handleWebSocketMessage = function(data) {
+                if (data.type === 'ai_response_complete') {
+                    currentStreamingMessage = null;
+                }
+                originalHandleMessage(data);
+            };
+        });
+
+        // Initialize connection when page loads
+        connectWebSocket();
+    </script>
+</body>
+</html>

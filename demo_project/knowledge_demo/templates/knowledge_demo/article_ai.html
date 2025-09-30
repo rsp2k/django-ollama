@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ article.title }} - AI Enhanced{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8">
+            <article>
+                <h1>{{ article.title }}</h1>
+                <p class="text-muted">
+                    By {{ article.author.username }} |
+                    {{ article.created_at|date:"F j, Y" }}
+                </p>
+
+                {% if article.tags %}
+                <div class="mb-3">
+                    {% for tag in article.tags %}
+                    <span class="badge bg-secondary">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="article-content">
+                    {{ article.content|linebreaks }}
+                </div>
+            </article>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h4>🤖 Ask AI About This Article</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <textarea name="message" class="form-control" rows="3"
+                                     placeholder="Ask a question about this article..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Get AI Response</button>
+                    </form>
+
+                    {% if ai_response %}
+                    <div class="alert alert-info mt-3">
+                        <h5>AI Response:</h5>
+                        <p>{{ ai_response|linebreaks }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card sticky-top" style="top: 20px;">
+                <div class="card-header">
+                    <h5>📚 AI Context Information</h5>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">
+                        The AI has access to the following context when answering questions:
+                    </p>
+
+                    <div class="mb-3">
+                        <strong>Total Context Items:</strong> {{ total_context_items }}
+                    </div>
+
+                    <h6>Available Querysets:</h6>
+                    <ul class="list-unstyled">
+                        {% for context in context_summary %}
+                        <li class="mb-2">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <code class="text-primary">{{ context.name }}</code><br>
+                                    <small class="text-muted">
+                                        {{ context.model }}
+                                        {% if context.count > 0 %}
+                                        ({{ context.count }} items)
+                                        {% else %}
+                                        (empty)
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <span class="badge bg-{{ context.priority|add:0|floatformat:0|slice:":1"|yesno:'danger,warning,info' }}">
+                                    P{{ context.priority }}
+                                </span>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+                    <hr>
+
+                    <div class="alert alert-light">
+                        <h6>How Context Injection Works:</h6>
+                        <ol class="small mb-0">
+                            <li>The <code>@inject_querysets</code> decorator adds article-specific context</li>
+                            <li>Middleware adds user-specific knowledge bases</li>
+                            <li>All querysets remain lazy until AI needs them</li>
+                            <li>Higher priority items are processed first</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

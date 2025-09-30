@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Multi-Context Demo{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1>Multiple Context Sources Demo</h1>
+    <p class="lead">This view demonstrates injecting multiple queryset sources using the <code>@inject_querysets</code> decorator.</p>
+
+    <div class="alert alert-info">
+        <h5>How Multiple Context Injection Works:</h5>
+        <p>The view decorator injects three different queryset types:</p>
+        <ul>
+            <li>Articles (latest 5)</li>
+            <li>Documents (latest 3)</li>
+            <li>Public Projects (latest 2)</li>
+        </ul>
+        <p>All with a priority of 5, ensuring they're included in AI context.</p>
+    </div>
+
+    <div class="row">
+        {% for model_name, querysets in grouped_context.items %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h4>{{ model_name }}</h4>
+                </div>
+                <div class="card-body">
+                    {% for qs in querysets %}
+                    <div class="mb-3">
+                        <h6><code>{{ qs.name }}</code></h6>
+                        <ul class="list-unstyled small">
+                            <li>Priority: <span class="badge bg-info">{{ qs.priority }}</span></li>
+                            <li>Limit: {{ qs.limit|default:"∞" }}</li>
+                            <li>Has Data:
+                                {% if qs.exists %}
+                                <span class="badge bg-success">Yes ({{ qs.count }} items)</span>
+                                {% else %}
+                                <span class="badge bg-secondary">No</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3>Decorator Code Example</h3>
+        </div>
+        <div class="card-body">
+            <pre class="bg-light p-3"><code>@inject_querysets(
+    lambda kwargs: Article.objects.all()[:5],
+    lambda kwargs: Document.objects.all()[:3],
+    lambda kwargs: Project.objects.filter(is_public=True)[:2],
+    priority=5
+)
+def multi_context_view(request):
+    # Querysets are automatically attached to request
+    context = get_ai_context(request, evaluate=False)
+    ...</code></pre>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3>Benefits of Multiple Context Sources</h3>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <h5>📊 Comprehensive Context</h5>
+                    <p>AI has access to different types of data, providing more complete answers.</p>
+                </div>
+                <div class="col-md-4">
+                    <h5>🎯 Targeted Injection</h5>
+                    <p>Each view can specify exactly what context it needs for optimal AI assistance.</p>
+                </div>
+                <div class="col-md-4">
+                    <h5>⚡ Lazy Evaluation</h5>
+                    <p>Querysets remain unevaluated until AI actually needs them, saving resources.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -7,13 +7,15 @@ interactions with Ollama models.
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from channels.generic.websocket import AsyncWebsocketConsumer
-from django.contrib.auth.models import AnonymousUser
 
 from .api import achat
-from .models import ChatMessage, ChatSession
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AnonymousUser
+    from .models import ChatMessage, ChatSession
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ class OllamaChatConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.session_id: Optional[str] = None
-        self.chat_session: Optional[ChatSession] = None
+        self.chat_session: Optional['ChatSession'] = None
 
     async def connect(self):
         """Accept WebSocket connection."""
@@ -155,6 +157,9 @@ class OllamaChatConsumer(AsyncWebsocketConsumer):
 
             @sync_to_async
             def create_session():
+                from django.contrib.auth.models import AnonymousUser
+                from .models import ChatSession
+
                 user = None if isinstance(self.scope["user"], AnonymousUser) else self.scope["user"]
                 return ChatSession.objects.create(
                     name=session_name,
@@ -211,6 +216,7 @@ class OllamaChatConsumer(AsyncWebsocketConsumer):
 
                 @sync_to_async
                 def get_session():
+                    from .models import ChatSession
                     return ChatSession.objects.filter(id=session_id, is_active=True).first()
 
                 self.chat_session = await get_session()
@@ -265,6 +271,8 @@ class OllamaChatConsumer(AsyncWebsocketConsumer):
 
             @sync_to_async
             def create_message():
+                from .models import ChatMessage
+
                 ChatMessage.objects.create(
                     session=self.chat_session,
                     role=role,

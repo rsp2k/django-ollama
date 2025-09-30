@@ -1,0 +1,301 @@
+{% extends "knowledge_demo/base.html" %}
+
+{% block title %}{{ project.name }} - Django-Ollama Demo{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-12">
+            <div class="card">
+                <!-- Project Header -->
+                <div class="project-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h1>{{ project.name }}</h1>
+                            <p class="mb-0 mt-2" style="opacity: 0.9;">
+                                {{ project.description|default:"No description provided" }}
+                            </p>
+                        </div>
+                        <div>
+                            {% if project.is_public %}
+                                <span class="badge success" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                                    🌍 Public
+                                </span>
+                            {% else %}
+                                <span class="badge warning" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                                    🔒 Private
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-body" style="padding: 2rem;">
+                    <!-- Project Info Grid -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <h5>📊 Project Information</h5>
+                                <table class="table table-borderless mb-0">
+                                    <tr>
+                                        <td width="40%" class="text-muted">Namespace:</td>
+                                        <td>
+                                            <a href="{% url 'knowledge_demo:namespace_detail' project.knowledge_base.namespace.slug %}"
+                                               style="text-decoration: none;">
+                                                <span class="namespace-badge">
+                                                    {{ project.knowledge_base.namespace.name }}
+                                                </span>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Owner:</td>
+                                        <td><strong>{{ project.owner.username }}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Project ID:</td>
+                                        <td><code>#{{ project.id }}</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Knowledge Base:</td>
+                                        <td>{{ project.knowledge_base.name }}</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="info-card">
+                                <h5>📅 Timeline</h5>
+                                <table class="table table-borderless mb-0">
+                                    <tr>
+                                        <td width="40%" class="text-muted">Created:</td>
+                                        <td>{{ project.created_at|date:"M d, Y" }} at {{ project.created_at|date:"g:i A" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Last Updated:</td>
+                                        <td>
+                                            {% if project.updated_at %}
+                                                {{ project.updated_at|date:"M d, Y" }} at {{ project.updated_at|date:"g:i A" }}
+                                            {% else %}
+                                                Never
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Age:</td>
+                                        <td>{{ project.created_at|timesince }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Status:</td>
+                                        <td>
+                                            <span class="badge success">Active</span>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Statistics Row -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="stat-box">
+                                <div class="stat-number">{{ project.knowledge_base.demo_articles.count|default:0 }}</div>
+                                <div class="stat-label">Articles</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-box">
+                                <div class="stat-number">{{ project.knowledge_base.demo_documents.count|default:0 }}</div>
+                                <div class="stat-label">Documents</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-box">
+                                <div class="stat-number">{{ project.team_members.count|default:0 }}</div>
+                                <div class="stat-label">Team Members</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Knowledge Base Content -->
+                    <div class="section-card">
+                        <h5>📄 Knowledge Base Articles</h5>
+                        {% if project.knowledge_base.demo_articles.exists %}
+                            <div class="list-group">
+                                {% for article in project.knowledge_base.demo_articles.all|slice:":5" %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div style="flex: 1;">
+                                            <h6 class="mb-2">{{ article.title }}</h6>
+                                            <p class="mb-2 text-muted">{{ article.content|truncatewords:20 }}</p>
+                                            <small class="text-muted">
+                                                <i class="fas fa-user"></i> {{ article.author.username }} •
+                                                <i class="fas fa-calendar"></i> {{ article.created_at|date:"M d, Y" }}
+                                                {% if article.tags %}
+                                                    • {% for tag in article.tags|slice:":3" %}
+                                                        <span class="badge secondary">{{ tag }}</span>
+                                                    {% endfor %}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm secondary">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% if project.knowledge_base.demo_articles.count > 5 %}
+                            <p class="text-center mt-3 mb-0">
+                                <small class="text-muted">
+                                    Showing 5 of {{ project.knowledge_base.demo_articles.count }} articles
+                                </small>
+                            </p>
+                            {% endif %}
+                        {% else %}
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📝</div>
+                                <p>No articles in the knowledge base yet</p>
+                                <p class="text-muted small">Start building your knowledge base by adding articles</p>
+                            </div>
+                        {% endif %}
+                        <div class="mt-3">
+                            <button class="btn success">
+                                <i class="fas fa-plus"></i> Add New Article
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Documents Section -->
+                    <div class="section-card">
+                        <h5>📂 Project Documents</h5>
+                        {% if project.knowledge_base.demo_documents.exists %}
+                            <div class="list-group">
+                                {% for document in project.knowledge_base.demo_documents.all|slice:":5" %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div style="flex: 1;">
+                                            <h6 class="mb-2">
+                                                <i class="fas fa-file"></i> {{ document.name }}
+                                            </h6>
+                                            {% if document.description %}
+                                                <p class="mb-2 text-muted small">{{ document.description }}</p>
+                                            {% endif %}
+                                            <small class="text-muted">
+                                                <span class="badge primary">{{ document.document_type|upper }}</span>
+                                                {{ document.file_size|filesizeformat }} •
+                                                Uploaded by {{ document.uploaded_by.username }} •
+                                                {{ document.uploaded_at|date:"M d, Y" }}
+                                            </small>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-sm secondary">
+                                                <i class="fas fa-download"></i> Download
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% if project.knowledge_base.demo_documents.count > 5 %}
+                            <p class="text-center mt-3 mb-0">
+                                <small class="text-muted">
+                                    Showing 5 of {{ project.knowledge_base.demo_documents.count }} documents
+                                </small>
+                            </p>
+                            {% endif %}
+                        {% else %}
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📁</div>
+                                <p>No documents uploaded yet</p>
+                                <p class="text-muted small">Upload documents to enrich your knowledge base</p>
+                            </div>
+                        {% endif %}
+                        <div class="mt-3">
+                            <button class="btn success">
+                                <i class="fas fa-upload"></i> Upload Document
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Team Section -->
+                    <div class="section-card">
+                        <h5>👥 Team Members</h5>
+                        {% if project.team_members.exists %}
+                            <div class="row">
+                                {% for member in project.team_members.all %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="d-flex align-items-center p-3 border rounded">
+                                        <div class="me-3">
+                                            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                                                {{ member.username|first|upper }}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h6 class="mb-0">{{ member.username }}</h6>
+                                            <small class="text-muted">
+                                                {% if member == project.owner %}
+                                                    <span class="badge warning">Owner</span>
+                                                {% else %}
+                                                    Team Member
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="empty-state">
+                                <div class="empty-state-icon">👤</div>
+                                <p>Working solo on this project</p>
+                                <p class="text-muted small">Invite team members to collaborate</p>
+                            </div>
+                        {% endif %}
+                        <div class="mt-3">
+                            <button class="btn primary">
+                                <i class="fas fa-user-plus"></i> Invite Team Member
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="btn-group justify-between">
+                        <a href="{% url 'knowledge_demo:index' %}" class="btn secondary">
+                            <i class="fas fa-arrow-left"></i> Back to Projects
+                        </a>
+                        {% if user == project.owner or user.is_superuser %}
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button class="btn warning">
+                                <i class="fas fa-cog"></i> Settings
+                            </button>
+                            <button class="btn primary">
+                                <i class="fas fa-edit"></i> Edit Project
+                            </button>
+                            <button class="btn danger" onclick="return confirm('Are you sure you want to delete this project?');">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if messages %}
+                <div class="mt-3">
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

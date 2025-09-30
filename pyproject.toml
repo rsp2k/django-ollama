@@ -53,6 +53,8 @@ dependencies = [
     "ollama>=0.3.0",
     "channels>=4.0.0",
     "channels-redis>=4.0.0",
+    "django-create-initial-user>=1.2.3",
+    "hypercorn>=0.14.0",
 ]
 
 [project.optional-dependencies]

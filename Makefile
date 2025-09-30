@@ -1,123 +1,80 @@
-# Makefile for django-ollama package development
+# Django-Ollama Docker Management Makefile
 
-.PHONY: help install install-dev test test-cov lint format check clean build publish docs
+# Environment Configuration
+include .env
+export
 
 # Default target
-help:
+.DEFAULT_GOAL := help
+
+.PHONY: help build up down logs restart clean dev prod health status
+
+help: ## Show this help message
+	@echo "Django-Ollama Docker Management"
+	@echo "==============================="
+	@echo ""
 	@echo "Available commands:"
-	@echo "  install       Install package in development mode"
-	@echo "  install-dev   Install package with development dependencies"
-	@echo "  test         Run tests"
-	@echo "  test-cov     Run tests with coverage report"
-	@echo "  lint         Run linting checks"
-	@echo "  format       Format code with black and isort"
-	@echo "  check        Run all checks (lint, test, etc.)"
-	@echo "  clean        Clean build artifacts"
-	@echo "  build        Build package"
-	@echo "  publish      Publish package to PyPI"
-	@echo "  docs         Build documentation"
-	@echo "  pre-commit   Install pre-commit hooks"
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-# Installation
-install:
-	uv pip install -e .
+# Development Commands
+dev: ## Start in development mode with hot reload
+	@echo "🚀 Starting Django-Ollama in development mode..."
+	@BUILD_TARGET=development docker compose up --build -d
+	@echo "✅ Development server running at http://$(DOMAIN)"
 
-install-dev:
-	uv pip install -e ".[dev]"
+dev-logs: ## Follow development logs
+	@docker compose logs -f django-ollama
 
-# Testing
-test:
-	pytest
+# Production Commands
+prod: ## Start in production mode
+	@echo "🚀 Starting Django-Ollama in production mode..."
+	@BUILD_TARGET=production docker compose up --build -d
+	@echo "✅ Production server running at https://$(DOMAIN)"
 
-test-cov:
-	pytest --cov=src/django_ollama --cov-report=html --cov-report=term-missing
+# Basic Docker Commands
+build: ## Build the Docker images
+	@echo "🔨 Building Django-Ollama Docker images..."
+	@docker compose build
 
-test-quick:
-	pytest -x --tb=short
+up: ## Start services in background
+	@echo "🚀 Starting Django-Ollama services..."
+	@docker compose up -d
 
-# Code quality
-lint:
-	flake8 src/ tests/
-	mypy src/django_ollama
-	bandit -r src/
+down: ## Stop and remove services
+	@echo "🛑 Stopping Django-Ollama services..."
+	@docker compose down
 
-format:
-	black src/ tests/
-	isort src/ tests/
+restart: ## Restart all services
+	@echo "🔄 Restarting Django-Ollama services..."
+	@docker compose restart
 
-check: lint test
+logs: ## Show logs from all services
+	@docker compose logs -f
 
-# Pre-commit
-pre-commit:
-	pre-commit install
-	pre-commit run --all-files
+# Health and Status
+health: ## Check service health
+	@echo "🏥 Checking service health..."
+	@docker compose ps
 
-# Cleaning
-clean:
-	rm -rf build/
-	rm -rf dist/
-	rm -rf *.egg-info/
-	rm -rf .pytest_cache/
-	rm -rf .coverage
-	rm -rf htmlcov/
-	rm -rf .mypy_cache/
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
+status: ## Show service status
+	@echo "📊 Service Status:"
+	@docker compose ps
 
-# Building and publishing
-build: clean
-	python -m build
+# Maintenance Commands
+clean: ## Clean up Docker resources
+	@echo "🧹 Cleaning up Docker resources..."
+	@docker compose down -v
+	@docker system prune -f
 
-publish-test: build
-	twine upload --repository testpypi dist/*
+# Network Commands
+network-create: ## Create the caddy network if it doesn't exist
+	@docker network inspect caddy >/dev/null 2>&1 || docker network create caddy
 
-publish: build
-	twine upload dist/*
+# Development helpers
+dev-setup: network-create dev ## Complete development setup
+	@echo "🎉 Development environment ready!"
+	@echo "   Django-Ollama: http://$(DOMAIN)"
 
-# Documentation
-docs:
-	cd docs && make html
-
-docs-serve:
-	cd docs && make serve
-
-# Development utilities
-shell:
-	python -c "import django; django.setup()"
-	python manage.py shell
-
-migrate:
-	python manage.py migrate
-
-makemigrations:
-	python manage.py makemigrations
-
-# Docker development (if using Docker)
-docker-build:
-	docker build -t django-ollama-dev .
-
-docker-test:
-	docker run --rm django-ollama-dev pytest
-
-# Ollama development helpers
-ollama-pull-models:
-	@echo "Pulling common Ollama models for development..."
-	ollama pull llama3.2:1b
-	ollama pull llama3.2:3b
-
-ollama-start:
-	@echo "Starting Ollama server..."
-	ollama serve
-
-# Version bumping (using setuptools-scm)
-version:
-	python -c "from setuptools_scm import get_version; print(get_version())"
-
-# Security checks
-security:
-	bandit -r src/
-	safety check
-
-# Performance testing
-perf-test:
-	locust --host=http://localhost:8000
+prod-setup: network-create prod ## Complete production setup
+	@echo "🎉 Production environment ready!"
+	@echo "   Django-Ollama: https://$(DOMAIN)"

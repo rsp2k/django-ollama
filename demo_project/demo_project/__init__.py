@@ -1,0 +1,1 @@
+# Demo project for django-ollama namespace features
