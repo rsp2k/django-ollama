@@ -1,0 +1,131 @@
+{% extends "knowledge_demo/base.html" %}
+
+{% block title %}{{ namespace.name }} - Namespace{% endblock %}
+
+{% block content %}
+<div class="namespace-header">
+    <div class="d-flex justify-content-between align-items-start">
+        <div>
+            <h1>{{ namespace.name }}</h1>
+            <p class="mb-0 mt-2" style="opacity: 0.9;">
+                {{ namespace.description|default:"No description provided" }}
+            </p>
+        </div>
+        {% if can_modify %}
+        <span class="badge bg-warning">Owner</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="container my-4">
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.total_kbs }}</div>
+                <div class="stat-label">Knowledge Bases</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.public_kbs }}</div>
+                <div class="stat-label">Public KBs</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.total_projects }}</div>
+                <div class="stat-label">Projects</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box">
+                <div class="stat-number">{{ stats.total_articles }}</div>
+                <div class="stat-label">Articles</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Knowledge Bases -->
+    <div class="section-card">
+        <h5>📚 Knowledge Bases in {{ namespace.name }}</h5>
+
+        {% if knowledge_bases %}
+        <div class="list-group list-group-flush">
+            {% for kb in knowledge_bases %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>{{ kb.name }}</strong>
+                        {% if kb.is_public %}
+                        <span class="badge bg-success ms-2">PUBLIC</span>
+                        {% else %}
+                        <span class="badge bg-secondary ms-2">PRIVATE</span>
+                        {% endif %}
+                        <p class="mb-0 text-muted small mt-1">
+                            {{ kb.description|truncatewords:20|default:"No description" }}
+                        </p>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">Owner: {{ kb.owner|default:"None" }}</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📚</div>
+            <p>No knowledge bases in this namespace yet</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Projects -->
+    <div class="section-card">
+        <h5>🗂️ Projects in {{ namespace.name }}</h5>
+
+        {% if projects %}
+        <div class="list-group list-group-flush">
+            {% for project in projects %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{% url 'knowledge_demo:project_detail' project.pk %}">
+                            <strong>{{ project.name }}</strong>
+                        </a>
+                        {% if project.is_public %}
+                        <span class="badge bg-success ms-2">PUBLIC</span>
+                        {% else %}
+                        <span class="badge bg-secondary ms-2">PRIVATE</span>
+                        {% endif %}
+                        <p class="mb-0 text-muted small mt-1">
+                            {{ project.description|truncatewords:20|default:"No description" }}
+                        </p>
+                    </div>
+                    <div class="text-end">
+                        <small class="text-muted">Owner: {{ project.owner }}</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">🗂️</div>
+            <p>No projects in this namespace yet</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="mt-4">
+        <a href="{% url 'knowledge_demo:index' %}" class="btn btn-secondary">
+            ← Back to Home
+        </a>
+        {% if can_modify %}
+        <button class="btn btn-primary ms-2">Edit Namespace</button>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

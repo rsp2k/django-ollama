@@ -61,7 +61,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django_ollama.context_injection.AIContextMiddleware',  # Add context injection middleware
+    'django_ollama.middleware.SecurityMiddleware',  # SOLID: Dependency injection for security
+    'django_ollama.context_injection.AIContextMiddleware',  # Context injection middleware
 ]
 
 ROOT_URLCONF = 'demo_project.urls'

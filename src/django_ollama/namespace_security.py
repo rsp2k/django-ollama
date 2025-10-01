@@ -387,31 +387,21 @@ class NamespaceSecurityMiddleware:
         return can_modify
 
 
-# Global instance for convenience
-_security_middleware = None
-
-
-def get_security_middleware() -> NamespaceSecurityMiddleware:
+def get_security_middleware(policy: Optional[NamespaceAccessPolicy] = None) -> NamespaceSecurityMiddleware:
     """
-    Get the global security middleware instance.
-
-    This creates a singleton instance that can be used throughout the application.
-    """
-    global _security_middleware
-    if _security_middleware is None:
-        _security_middleware = NamespaceSecurityMiddleware()
-    return _security_middleware
-
-
-def reset_security_middleware(policy: Optional[NamespaceAccessPolicy] = None):
-    """
-    Reset the global security middleware with a new policy.
+    Factory function to create a security middleware instance.
 
     Args:
-        policy: Optional new policy to use
+        policy: Optional policy to use (defaults to configured policy)
+
+    Returns:
+        New NamespaceSecurityMiddleware instance
+
+    Note:
+        This is a factory function, not a singleton. Each call creates a new instance.
+        For Django views, consider using request.security_middleware if available.
     """
-    global _security_middleware
-    _security_middleware = NamespaceSecurityMiddleware(policy)
+    return NamespaceSecurityMiddleware(policy)
 
 
 # Decorator for views/functions that need namespace security

@@ -114,6 +114,7 @@ class QuerysetInjector(ABC):
         from .models import KnowledgeBase  # Import inside function to avoid AppRegistryNotReady
 
         filtered = []
+        # Create middleware instance for permission filtering
         middleware = get_security_middleware()
 
         for lazy_qs in querysets:

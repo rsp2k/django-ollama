@@ -54,6 +54,42 @@ class NamespaceManager(models.Manager):
             models.Q(knowledge_bases__owner=user)
         ).distinct()
 
+    def set_as_default(self, namespace):
+        """
+        Set a namespace as the default, unsetting any previous default.
+
+        This method encapsulates the business logic for managing the
+        "only one default" constraint.
+
+        Args:
+            namespace: The namespace to set as default
+
+        Returns:
+            The updated namespace
+        """
+        # Unset any other default namespace
+        self.filter(is_default=True).exclude(pk=namespace.pk).update(is_default=False)
+
+        # Set this namespace as default
+        namespace.is_default = True
+        namespace.save(update_fields=['is_default', 'updated_at'])
+
+        return namespace
+
+    def ensure_slug(self, namespace):
+        """
+        Generate slug from name if not provided.
+
+        Args:
+            namespace: The namespace to process
+
+        Returns:
+            The namespace with slug set
+        """
+        if not namespace.slug:
+            namespace.slug = slugify(namespace.name)
+        return namespace
+
 
 class Namespace(models.Model):
     """
@@ -100,12 +136,19 @@ class Namespace(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        """Ensure only one default namespace exists."""
-        if not self.slug:
-            self.slug = slugify(self.name)
+        """
+        Save namespace with automatic slug generation.
 
+        Note: For setting as default, prefer using Namespace.objects.set_as_default()
+        to ensure proper encapsulation of business logic.
+        """
+        # Ensure slug is generated
+        if not self.slug:
+            Namespace.objects.ensure_slug(self)
+
+        # Handle default namespace constraint
         if self.is_default:
-            # Unset any other default namespace
+            # Unset any other default (this logic will move to manager in future)
             Namespace.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
 
         super().save(*args, **kwargs)
